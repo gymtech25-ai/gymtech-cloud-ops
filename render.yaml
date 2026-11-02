@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: gymtech-facebook-auto-responder
+    runtime: python
+    buildCommand: pip install -r services/facebook_auto_responder/requirements.txt
+    startCommand: python services/facebook_auto_responder/auto_responder_cloud.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: FB_PAGE_ID
+        sync: false
+      - key: FB_PAGE_ACCESS_TOKEN
+        sync: false
+      - key: POLL_INTERVAL_SEC
+        value: 180
+      - key: YOUTUBE_DEFAULT_SEARCH
+        value: GYMTECH INQUEBRANTABLE

@@ -1,0 +1,57 @@
+name: GYMTECH Kaggle Compute Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Acción a realizar'
+        required: true
+        default: 'push'
+        type: choice
+        options:
+          - push
+          - status
+          - output
+      kernel_slug:
+        description: 'Slug del Kernel en Kaggle (ej: tu_usuario/gymtech-audio-processor)'
+        required: false
+        default: 'gymtech/gymtech-audio-processor'
+
+jobs:
+  kaggle_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar Kaggle CLI
+        run: |
+          pip install kaggle
+
+      - name: Ejecutar acción en Kaggle
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          ACTION="${{ github.event.inputs.action }}"
+          SLUG="${{ github.event.inputs.kernel_slug }}"
+
+          if [ "$ACTION" = "push" ]; then
+            python services/kaggle_bridge/kaggle_bridge.py push --dir services/kaggle_bridge/sample_kernel
+          elif [ "$ACTION" = "status" ]; then
+            python services/kaggle_bridge/kaggle_bridge.py status --slug "$SLUG"
+          elif [ "$ACTION" = "output" ]; then
+            python services/kaggle_bridge/kaggle_bridge.py output --slug "$SLUG" --dest ./kaggle_results
+          fi
+
+      - name: Guardar resultados como artefacto
+        if: github.event.inputs.action == 'output'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-results
+          path: kaggle_results/

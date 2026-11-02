@@ -1,0 +1,25 @@
+# Secretos y credenciales críticas
+*.pickle
+*.env
+*.env.*
+*.txt
+!requirements.txt
+!*/requirements.txt
+fb_session.json
+client_secrets.json
+
+# Estados locales y cachés
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Datos de ejecución
+replied_comments_cloud.json
+audit_report.json
+kaggle_results/
+output/
+.kaggle/

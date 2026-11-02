@@ -1,0 +1,55 @@
+name: GYMTECH YouTube Cloud Supervisor
+
+on:
+  schedule:
+    # Se ejecuta cada hora automáticamente en los servidores de GitHub
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Modo de ejecución'
+        required: true
+        default: 'audit'
+        type: choice
+        options:
+          - audit
+          - apply
+      max_videos:
+        description: 'Cantidad máxima de videos a auditar'
+        required: false
+        default: '20'
+
+jobs:
+  supervise_channel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r services/youtube_supervisor/requirements.txt
+
+      - name: Ejecutar Supervisor de YouTube
+        env:
+          YOUTUBE_TOKEN_PICKLE_B64: ${{ secrets.YOUTUBE_TOKEN_PICKLE_B64 }}
+          NOTIFICATION_WEBHOOK: ${{ secrets.NOTIFICATION_WEBHOOK }}
+        run: |
+          MODE="${{ github.event.inputs.mode || 'audit' }}"
+          MAX_VIDEOS="${{ github.event.inputs.max_videos || '20' }}"
+          python services/youtube_supervisor/youtube_supervisor.py --mode "$MODE" --max-videos "$MAX_VIDEOS" --output audit_report.json
+
+      - name: Guardar reporte de auditoría como artefacto
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: youtube-audit-report
+          path: audit_report.json
+          retention-days: 14
