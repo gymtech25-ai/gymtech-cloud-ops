@@ -124,8 +124,8 @@ def responder_comentarios_loop():
     while True:
         try:
             if PAGE_ID and ACCESS_TOKEN:
-                # 1. Obtener los últimos posts con sus comentarios
-                feed_url = f"{base_url}/{PAGE_ID}/feed"
+                # 1. Obtener los últimos posts publicados con sus comentarios
+                feed_url = f"{base_url}/{PAGE_ID}/published_posts"
                 params = {
                     "fields": "id,message,created_time,comments.limit(25){id,from,message,created_time}",
                     "limit": 5,
