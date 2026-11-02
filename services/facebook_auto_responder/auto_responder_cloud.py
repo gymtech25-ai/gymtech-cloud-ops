@@ -105,6 +105,35 @@ def start_health_server():
     server.serve_forever()
 
 
+def resolve_page_access_token(base_url: str, page_id: str, raw_token: str) -> str:
+    """Detecta si el token es de Usuario y lo convierte automáticamente en Page Access Token."""
+    if not raw_token or not page_id:
+        return raw_token
+
+    clean_token = raw_token.strip().strip('"').strip("'")
+    try:
+        debug_url = f"{base_url}/debug_token"
+        res = requests.get(debug_url, params={"input_token": clean_token, "access_token": clean_token}, timeout=10)
+        if res.status_code == 200:
+            token_type = res.json().get("data", {}).get("type")
+            if token_type == "PAGE":
+                print("[+] Token verificado: Es un Page Access Token directo.")
+                return clean_token
+            else:
+                print(f"[*] Token de tipo '{token_type}' detectado. Obteniendo Page Access Token automáticamente...")
+                page_url = f"{base_url}/{page_id}"
+                p_res = requests.get(page_url, params={"fields": "access_token", "access_token": clean_token}, timeout=10)
+                if p_res.status_code == 200:
+                    page_token = p_res.json().get("access_token")
+                    if page_token:
+                        print("[+] ¡Page Access Token obtenido y activado exitosamente!")
+                        return page_token
+    except Exception as e:
+        print(f"[!] Error al resolver Page Token: {e}")
+
+    return clean_token
+
+
 def responder_comentarios_loop():
     """Bucle 24/7 de monitoreo y respuesta automática."""
     print("=" * 70)
@@ -118,18 +147,20 @@ def responder_comentarios_loop():
         print("[!] El servidor de salud permanecerá activo pero no podrá consultar Graph API.")
 
     base_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
+    active_token = resolve_page_access_token(base_url, PAGE_ID, ACCESS_TOKEN) if (PAGE_ID and ACCESS_TOKEN) else ACCESS_TOKEN
+
     replied_ids = load_replied_ids()
     print(f"[*] Comentarios previamente respondidos cargados: {len(replied_ids)}")
 
     while True:
         try:
-            if PAGE_ID and ACCESS_TOKEN:
+            if PAGE_ID and active_token:
                 # 1. Obtener los últimos posts publicados con sus comentarios
                 feed_url = f"{base_url}/{PAGE_ID}/published_posts"
                 params = {
                     "fields": "id,message,created_time,comments.limit(25){id,from,message,created_time}",
                     "limit": 5,
-                    "access_token": ACCESS_TOKEN
+                    "access_token": active_token
                 }
                 res = requests.get(feed_url, params=params, timeout=15)
                 if res.status_code == 200:
@@ -155,7 +186,7 @@ def responder_comentarios_loop():
                             post_reply_url = f"{base_url}/{c_id}/comments"
                             reply_res = requests.post(
                                 post_reply_url,
-                                data={"message": reply_body, "access_token": ACCESS_TOKEN},
+                                data={"message": reply_body, "access_token": active_token},
                                 timeout=15
                             )
 
@@ -164,16 +195,14 @@ def responder_comentarios_loop():
                                 save_replied_id(c_id)
                                 replied_ids.add(c_id)
                             else:
-                                print(f"    [!] Error al responder: {reply_res.text}")
+                                print(f"    [!] Error al responder: {reply_res.status_code} - {reply_res.text}")
 
                             # Pausa humana de seguridad anti-detección
                             delay = random.randint(15, 30)
                             time.sleep(delay)
 
-                elif res.status_code == 400:
-                    print(f"[!] Error de token o permisos de Graph API: {res.text}")
                 else:
-                    print(f"[!] Respuesta inesperada de Facebook: HTTP {res.status_code}")
+                    print(f"[!] Error de Facebook (HTTP {res.status_code}): {res.text}")
 
         except Exception as e:
             print(f"[!] Excepción en ciclo de monitoreo: {e}")
