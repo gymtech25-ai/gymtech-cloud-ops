@@ -23,11 +23,24 @@ if sys.platform == "win32" and sys.stdout and hasattr(sys.stdout, "reconfigure")
 
 def setup_kaggle_credentials():
     """Configura credenciales de Kaggle desde variables de entorno si están presentes."""
+    kaggle_dir = Path.home() / ".kaggle"
+    kaggle_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Soporte para el nuevo Kaggle Access Token (KGAT_...)
+    access_token = os.environ.get("KAGGLE_API_TOKEN") or os.environ.get("KAGGLE_TOKEN")
+    if access_token:
+        token_file = kaggle_dir / "access_token"
+        with open(token_file, "w", encoding="utf-8") as f:
+            f.write(access_token.strip())
+        if sys.platform != "win32":
+            os.chmod(token_file, 0o600)
+        print("[+] Credenciales de Kaggle configuradas mediante Access Token (KGAT_...).")
+        return
+
+    # 2. Soporte para credenciales tradicionales (kaggle.json)
     username = os.environ.get("KAGGLE_USERNAME")
     key = os.environ.get("KAGGLE_KEY")
     if username and key:
-        kaggle_dir = Path.home() / ".kaggle"
-        kaggle_dir.mkdir(parents=True, exist_ok=True)
         kaggle_json = kaggle_dir / "kaggle.json"
         with open(kaggle_json, "w", encoding="utf-8") as f:
             json.dump({"username": username, "key": key}, f)
